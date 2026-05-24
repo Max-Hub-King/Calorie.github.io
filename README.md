@@ -340,7 +340,7 @@ canvas { width: 100% !important; }
       <div class="app-logo">Nou<span>ri</span></div>
       <div class="topbar-actions">
         <button class="icon-btn" onclick="openModal('new-food')">＋</button>
-        <button class="icon-btn">⚙</button>
+        <button class="icon-btn" onclick="openModal('settings')">⚙</button>
       </div>
     </div>
     <div class="calendar-strip" id="calendarStrip"></div>
@@ -467,7 +467,15 @@ canvas { width: 100% !important; }
       </div>
 
       <div class="chart-card">
-        <div class="chart-title">Macronutrient Split</div>
+        <div class="chart-title">Macronutrient Split (avg)</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:24px;padding:8px 0">
+          <canvas id="pieChart" width="130" height="130"></canvas>
+          <div id="pieLegend" style="display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Macronutrient Trend</div>
         <div class="chart-area"><canvas id="macroChart"></canvas></div>
       </div>
 
@@ -613,14 +621,89 @@ canvas { width: 100% !important; }
   </div>
 </div>
 
+<!-- ── SETTINGS MODAL ── -->
+<div class="modal-overlay" id="modal-settings">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">Daily Goals</div>
+      <button class="modal-close" onclick="closeModal('settings')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-section-label">Calories & Macros</div>
+      <div class="form-field">
+        <label class="form-label">Calories (kcal)</label>
+        <input class="form-input" type="number" id="sg-cal" placeholder="2000">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Macros (g/day)</label>
+        <div class="form-row">
+          <div>
+            <div style="font-size:11px;color:var(--protein-color);font-weight:600;margin-bottom:4px;">Protein</div>
+            <input class="form-input" type="number" id="sg-p" placeholder="150">
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--fat-color);font-weight:600;margin-bottom:4px;">Fat</div>
+            <input class="form-input" type="number" id="sg-f" placeholder="65">
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--carb-color);font-weight:600;margin-bottom:4px;">Carbs</div>
+            <input class="form-input" type="number" id="sg-c" placeholder="250">
+          </div>
+        </div>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Water (ml/day)</label>
+        <input class="form-input" type="number" id="sg-water" placeholder="2000">
+      </div>
+
+      <div class="form-divider"></div>
+      <div class="form-section-label">Vitamins & Minerals</div>
+      <div id="sg-micros" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="secondary-btn" onclick="closeModal('settings')">Cancel</button>
+      <button class="submit-btn" onclick="saveSettings()">Save Goals</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 // ── DATA ──
-const GOALS = { cal: 2000, p: 150, f: 65, c: 250, water: 2000 };
-const VITAMIN_GOALS = { C: 90, D: 20, B12: 2.4, A: 900, E: 15, K: 120, B6: 1.7, Folate: 400 };
-const VITAMIN_UNITS = { C: 'mg', D: 'μg', B12: 'μg', A: 'μg', E: 'mg', K: 'μg', B6: 'mg', Folate: 'μg' };
-const VITAMIN_COLORS = ['#ff7e5f','#f9c74f','#90be6d','#4cc9f0','#7b2d8b','#f77f00','#d62828','#023e8a'];
+const DEFAULT_GOALS = { cal: 2000, p: 150, f: 65, c: 250, water: 2000 };
+let GOALS = JSON.parse(localStorage.getItem('nouri_goals') || 'null') || { ...DEFAULT_GOALS };
+function saveGoals() { localStorage.setItem('nouri_goals', JSON.stringify(GOALS)); }
+
+const MICRONUTRIENT_DEFAULTS = {
+  A: 900, D: 20, E: 15, K: 120, C: 90,
+  B1: 1.2, B2: 1.3, B3: 16, B5: 5, B6: 1.7, B9: 400, B12: 2.4,
+  Calcium: 1000, Iron: 18, Magnesium: 400, Potassium: 3500,
+  Zinc: 11, Sodium: 2300, Iodine: 150
+};
+const MICRONUTRIENT_UNITS = {
+  A: 'μg', D: 'μg', E: 'mg', K: 'μg', C: 'mg',
+  B1: 'mg', B2: 'mg', B3: 'mg', B5: 'mg', B6: 'mg', B9: 'μg', B12: 'μg',
+  Calcium: 'mg', Iron: 'mg', Magnesium: 'mg', Potassium: 'mg',
+  Zinc: 'mg', Sodium: 'mg', Iodine: 'μg'
+};
+const MICRONUTRIENT_LABELS = {
+  A: 'Vit. A', D: 'Vit. D', E: 'Vit. E', K: 'Vit. K', C: 'Vit. C',
+  B1: 'Vit. B1', B2: 'Vit. B2', B3: 'Vit. B3', B5: 'Vit. B5',
+  B6: 'Vit. B6', B9: 'Vit. B9', B12: 'Vit. B12',
+  Calcium: 'Calcium', Iron: 'Iron', Magnesium: 'Magnesium',
+  Potassium: 'Potassium', Zinc: 'Zinc', Sodium: 'Sodium', Iodine: 'Iodine'
+};
+let VITAMIN_GOALS = JSON.parse(localStorage.getItem('nouri_micros') || 'null') || { ...MICRONUTRIENT_DEFAULTS };
+function saveMicroGoals() { localStorage.setItem('nouri_micros', JSON.stringify(VITAMIN_GOALS)); }
+
+const VITAMIN_UNITS = MICRONUTRIENT_UNITS;
+const VITAMIN_COLORS = [
+  '#ff7e5f','#f9c74f','#90be6d','#4cc9f0','#7b2d8b','#f77f00',
+  '#d62828','#023e8a','#2d6a4f','#e76f51','#457b9d','#a8dadc',
+  '#6d6875','#b5838d','#e9c46a','#264653','#2a9d8f','#e9c46a','#f4a261'
+];
 
 const MEAL_CONFIG = [
   { id: 'breakfast', name: 'Breakfast', emoji: '🌅' },
@@ -726,7 +809,7 @@ function renderDashboard() {
     pill.className = 'vitamin-pill';
     pill.innerHTML = `
       <div class="vitamin-header">
-        <span class="vitamin-name">Vit. ${name}</span>
+        <span class="vitamin-name">${MICRONUTRIENT_LABELS[name] || name}</span>
         <span class="vitamin-pct" style="color:${isGood ? 'var(--sage-dark)' : pct > 70 ? 'var(--warn)' : 'var(--muted)'}">${Math.round(pct)}%</span>
       </div>
       <div class="vitamin-bar-track"><div class="vitamin-bar-fill" style="width:${pct}%;background:${isGood ? 'var(--sage)' : color}"></div></div>
@@ -849,10 +932,47 @@ function openModal(name, mealPreset) {
     if (mealPreset) document.getElementById('nf-meal').value = mealPreset;
     clearNFForm();
   }
+
+  if (name === 'settings') {
+    document.getElementById('sg-cal').value = GOALS.cal;
+    document.getElementById('sg-p').value = GOALS.p;
+    document.getElementById('sg-f').value = GOALS.f;
+    document.getElementById('sg-c').value = GOALS.c;
+    document.getElementById('sg-water').value = GOALS.water;
+    const microsDiv = document.getElementById('sg-micros');
+    microsDiv.innerHTML = '';
+    Object.entries(VITAMIN_GOALS).forEach(([key, val]) => {
+      const unit = MICRONUTRIENT_UNITS[key];
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;';
+      row.innerHTML = `
+        <label style="font-size:13px;font-weight:500;color:var(--ink-soft);flex:1;min-width:80px">${MICRONUTRIENT_LABELS[key]}</label>
+        <input class="form-input" type="number" data-key="${key}" value="${val}" style="width:90px;text-align:right">
+        <span style="font-size:12px;color:var(--muted);width:24px">${unit}</span>`;
+      microsDiv.appendChild(row);
+    });
+  }
 }
 function closeModal(name) {
   document.getElementById('modal-' + name).classList.remove('open');
   document.body.style.overflow = '';
+}
+
+function saveSettings() {
+  GOALS.cal = parseFloat(document.getElementById('sg-cal').value) || GOALS.cal;
+  GOALS.p = parseFloat(document.getElementById('sg-p').value) || GOALS.p;
+  GOALS.f = parseFloat(document.getElementById('sg-f').value) || GOALS.f;
+  GOALS.c = parseFloat(document.getElementById('sg-c').value) || GOALS.c;
+  GOALS.water = parseFloat(document.getElementById('sg-water').value) || GOALS.water;
+  document.querySelectorAll('#sg-micros input[data-key]').forEach(input => {
+    const key = input.dataset.key;
+    const val = parseFloat(input.value);
+    if (key && val > 0) VITAMIN_GOALS[key] = val;
+  });
+  saveGoals(); saveMicroGoals();
+  closeModal('settings');
+  renderDashboard();
+  showToast('✓ Goals saved!');
 }
 
 function clearNFForm() {
@@ -912,7 +1032,7 @@ function addVitaminEntry(containerId, typeVal = '', qtyVal = '') {
   entry.style.marginBottom = '8px';
   entry.innerHTML = `
     <select class="form-select">
-      ${Object.keys(VITAMIN_GOALS).map(v => `<option value="${v}" ${v === typeVal ? 'selected' : ''}>Vit. ${v}</option>`).join('')}
+      ${Object.keys(VITAMIN_GOALS).map(v => `<option value="${v}" ${v === typeVal ? 'selected' : ''}>${MICRONUTRIENT_LABELS[v]}</option>`).join('')}
     </select>
     <input class="form-input" type="number" placeholder="qty" value="${qtyVal}" style="width:80px">
     <button class="remove-vit-btn" onclick="this.parentElement.remove()">✕</button>`;
@@ -1007,8 +1127,83 @@ function renderAnalytics() {
   document.getElementById('goalTrend').textContent = goalMetDays > 0 ? `out of ${days} days` : '';
 
   drawCalChart(labels, calData);
+  drawPieChart(pData, fData, cData);
   drawMacroChart(labels, pData, fData, cData);
   renderVitaminAnalytics();
+}
+
+function drawPieChart(pData, fData, cData) {
+  const canvas = document.getElementById('pieChart');
+  const ctx = canvas.getContext('2d');
+  const size = 130;
+  canvas.width = size; canvas.height = size;
+  ctx.clearRect(0, 0, size, size);
+
+  const avgP = pData.reduce((a, b) => a + b, 0) / pData.length || 0;
+  const avgF = fData.reduce((a, b) => a + b, 0) / fData.length || 0;
+  const avgC = cData.reduce((a, b) => a + b, 0) / cData.length || 0;
+
+  // convert to calories for proportional display
+  const calP = avgP * 4, calF = avgF * 9, calC = avgC * 4;
+  const total = calP + calF + calC;
+
+  const legend = document.getElementById('pieLegend');
+  legend.innerHTML = '';
+
+  if (total === 0) {
+    ctx.fillStyle = 'var(--pebble)';
+    ctx.beginPath(); ctx.arc(size/2, size/2, size/2 - 10, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'var(--muted)'; ctx.font = '10px DM Sans'; ctx.textAlign = 'center';
+    ctx.fillText('No data', size/2, size/2 + 4);
+    return;
+  }
+
+  const slices = [
+    { label: 'Protein', val: calP, avg: avgP, unit: 'g', color: '#5b9bd5' },
+    { label: 'Fat', val: calF, avg: avgF, unit: 'g', color: '#e8b84b' },
+    { label: 'Carbs', val: calC, avg: avgC, unit: 'g', color: '#c97dd0' },
+  ];
+
+  const cx = size / 2, cy = size / 2, r = size / 2 - 8, innerR = r * 0.52;
+  let startAngle = -Math.PI / 2;
+
+  slices.forEach(s => {
+    const sweep = (s.val / total) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, startAngle, startAngle + sweep);
+    ctx.closePath();
+    ctx.fillStyle = s.color;
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    startAngle += sweep;
+  });
+
+  // donut hole
+  ctx.beginPath(); ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff'; ctx.fill();
+
+  // center text
+  ctx.fillStyle = 'var(--ink)'; ctx.font = `bold 13px DM Sans`; ctx.textAlign = 'center';
+  ctx.fillText(Math.round(total), cx, cy - 2);
+  ctx.fillStyle = 'var(--muted)'; ctx.font = '9px DM Sans';
+  ctx.fillText('avg kcal', cx, cy + 10);
+
+  // legend
+  slices.forEach(s => {
+    const pct = total > 0 ? Math.round(s.val / total * 100) : 0;
+    const item = document.createElement('div');
+    item.style.cssText = 'display:flex;align-items:center;gap:6px;';
+    item.innerHTML = `
+      <div style="width:10px;height:10px;border-radius:3px;background:${s.color};flex-shrink:0"></div>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--ink-soft)">${s.label}</div>
+        <div style="font-size:11px;color:var(--muted)">${Math.round(s.avg)}${s.unit} · ${pct}%</div>
+      </div>`;
+    legend.appendChild(item);
+  });
 }
 
 function drawCalChart(labels, data) {
@@ -1151,7 +1346,7 @@ function renderVitaminAnalytics() {
     const row = document.createElement('div');
     row.innerHTML = `
       <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-        <span style="font-size:12px;font-weight:600;color:var(--ink-soft)">Vit. ${name}</span>
+        <span style="font-size:12px;font-weight:600;color:var(--ink-soft)">${MICRONUTRIENT_LABELS[name] || name}</span>
         <span style="font-size:12px;color:${pct >= 90 ? 'var(--sage-dark)' : 'var(--warn)'};font-weight:600">${Math.round(pct)}% avg</span>
       </div>
       <div style="height:6px;background:var(--pebble);border-radius:3px;overflow:hidden">
@@ -1201,22 +1396,7 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-// ── SEED DEMO DATA ──
-function seedDemo() {
-  if (dailyLogs[todayStr()]) return;
-  const day = getDay(todayStr());
-  day.breakfast.push({ name: 'Greek Yogurt', cal: 59, p: 10, f: 0.4, c: 3.6, vitamins: [{type:'D',qty:1.2}], weight: 100 });
-  day.breakfast.push({ name: 'Banana', cal: 89, p: 1.1, f: 0.3, c: 23, vitamins: [{type:'B6',qty:0.4}], weight: 100 });
-  day.lunch.push({ name: 'Chicken Breast', cal: 165, p: 31, f: 3.6, c: 0, vitamins: [{type:'B12',qty:0.3}], weight: 100 });
-  day.lunch.push({ name: 'Brown Rice', cal: 168, p: 3.5, f: 1.4, c: 36, vitamins: [], weight: 150 });
-  day.lunch.push({ name: 'Broccoli', cal: 27, p: 2.2, f: 0.3, c: 5.6, vitamins: [{type:'C',qty:71},{type:'K',qty:82}], weight: 80 });
-  day.dinner.push({ name: 'Salmon', cal: 208, p: 20, f: 13, c: 0, vitamins: [{type:'D',qty:11},{type:'B12',qty:3.2}], weight: 100 });
-  waterLogs[todayStr()] = 1250;
-  saveLogs(); saveWater();
-}
-
 // ── INIT ──
-seedDemo();
 buildCalendar();
 renderDashboard();
 </script>
